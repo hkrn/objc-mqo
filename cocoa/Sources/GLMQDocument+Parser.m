@@ -283,10 +283,15 @@ static inline void GLMQGetFloat(GLfloat *n, const void *p, int len)
                 [self skipSpacesAfterGettingQuotedString:&path
                                                   length:&wordLength
                                                    limit:(int)sizeof(material->texturePath)];
-                NSString *pathForKey = [[NSString alloc] initWithUTF8String:path];
-                [images setValue:[NSNull null]
-                          forKey:pathForKey];
-                [pathForKey release];
+                NSString *pathForKey = [[NSString alloc] initWithBytesNoCopy:path
+                                                                      length:wordLength
+                                                                    encoding:NSShiftJISStringEncoding
+                                                                freeWhenDone:NO];
+                if (pathForKey != nil) {
+                    [images setValue:[NSNull null]
+                              forKey:pathForKey];
+                    [pathForKey release];
+                }
             }
             else if (wordLength >= 5) {
                 if (memcmp(p, "bump(", 5) == 0) {
@@ -295,10 +300,15 @@ static inline void GLMQGetFloat(GLfloat *n, const void *p, int len)
                     [self skipSpacesAfterGettingQuotedString:&path
                                                       length:&wordLength
                                                        limit:(int)sizeof(material->bumpTexturePath)];
-                    NSString *pathForKey = [[NSString alloc] initWithUTF8String:path];
-                    [images setValue:[NSNull null]
-                              forKey:pathForKey];
-                    [pathForKey release];
+                    NSString *pathForKey = [[NSString alloc] initWithBytesNoCopy:path
+                                                                          length:wordLength
+                                                                        encoding:NSShiftJISStringEncoding
+                                                                    freeWhenDone:NO];
+                    if (pathForKey != nil) {
+                        [images setValue:[NSNull null]
+                                  forKey:pathForKey];
+                        [pathForKey release];
+                    }
                 }
                 else if (memcmp(p, "vcol(", 5) == 0) {
                     pos += 5;
@@ -316,10 +326,15 @@ static inline void GLMQGetFloat(GLfloat *n, const void *p, int len)
                         [self skipSpacesAfterGettingQuotedString:&path
                                                           length:&wordLength
                                                            limit:(int)sizeof(material->alphaTexturePath)];
-                        NSString *pathForKey = [[NSString alloc] initWithUTF8String:path];
-                        [images setValue:[NSNull null]
-                                  forKey:pathForKey];
-                        [pathForKey release];
+                        NSString *pathForKey = [[NSString alloc] initWithBytesNoCopy:path
+                                                                              length:wordLength
+                                                                            encoding:NSShiftJISStringEncoding
+                                                                        freeWhenDone:NO];
+                        if (pathForKey != nil) {
+                            [images setValue:[NSNull null]
+                                      forKey:pathForKey];
+                            [pathForKey release];
+                        }
                     }
                     else if (memcmp(p, "shader(", 7) == 0) {
                         pos += 7;
