@@ -56,6 +56,94 @@ struct GLMQTGAImage {
     int size;
 };
 
+#define kBytesPerPixel 4
+
+#if 0
+static BOOL WriteImageToData(NSMutableData *data, CGImageRef image)
+{
+    CGImageDestinationRef dest = CGImageDestinationCreateWithData((CFMutableDataRef)data,
+                                                                  kUTTypePNG, 1, NULL);
+    if (dest != NULL) {
+        CFTypeRef keys[2], values[2];
+        float resolution = 144;
+        keys[0] = kCGImagePropertyDPIWidth;
+        keys[1] = kCGImagePropertyDPIHeight;
+        values[0] = CFNumberCreate(NULL, kCFNumberFloatType, &resolution);
+        values[1] = values[0];
+        CFDictionaryRef options = CFDictionaryCreate(NULL, keys, values, 2,
+                                                     &kCFTypeDictionaryKeyCallBacks,
+                                                     &kCFTypeDictionaryValueCallBacks);
+        CFRelease(values[0]);
+        CGImageDestinationAddImage(dest, image, options);
+        CGImageDestinationFinalize(dest);
+        CFRelease(options);
+        CFRelease(dest);
+        return YES;
+    }
+    return NO;
+}
+
+static BOOL WriteImageToFile(NSString *path, CGImageRef image)
+{
+    NSMutableData *data = [[NSMutableData alloc] init];
+    if (WriteImageToData(data, image)) {
+        [data writeToFile:path
+               atomically:YES];
+        [data release];
+        return YES;
+    }
+    [data release];
+    return NO;
+}
+#else
+#define WriteImageToData (void)0
+#define WriteImageToFile (void)0
+#endif
+
+static GLubyte *GetBitmapDataFromCGImage(CGImageRef image)
+{
+	size_t width = CGImageGetWidth(image);
+	size_t height = CGImageGetHeight(image);
+	GLubyte *buffer = (GLubyte *)malloc(width * height * kBytesPerPixel);
+	CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+	CGContextRef context = CGBitmapContextCreate(buffer, width, height, 8, width * kBytesPerPixel,
+                                                 colorSpace, kCGImageAlphaPremultipliedLast);
+	CGContextDrawImage(context, CGRectMake(0, 0, width, height), image);
+	CGContextRelease(context);
+	CGColorSpaceRelease(colorSpace);
+    context = NULL;
+    colorSpace = NULL;
+	return buffer;
+}
+
+static CGImageRef CreateCGImageFromBitmap(GLubyte *bitmap, size_t width, size_t height, BOOL flip)
+{
+    CGImageRef result;
+	CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+    size_t stride = width * kBytesPerPixel;
+    size_t totalBytes = stride * height;
+    CGDataProviderRef provider = CGDataProviderCreateWithData(NULL, bitmap, totalBytes, NULL);
+    result = CGImageCreate(width, height, 8, 8 * kBytesPerPixel, stride,
+                           colorSpace, kCGImageAlphaPremultipliedLast, provider, NULL, 0,
+                           kCGRenderingIntentDefault);
+    CGDataProviderRelease(provider);
+    if (flip) {
+        GLubyte *buffer = (GLubyte *)malloc(totalBytes);
+        CGContextRef context = CGBitmapContextCreate(buffer, width, height, 8, stride,
+                                                     colorSpace, kCGImageAlphaPremultipliedLast);
+        CGContextTranslateCTM(context, 0, height);
+        CGContextScaleCTM(context, 1, -1);
+        CGContextDrawImage(context, CGRectMake(0, 0, width, height), result);
+        CGImageRelease(result);
+        result = CGBitmapContextCreateImage(context);
+        CGContextRelease(context);
+        context = NULL;
+    }
+	CGColorSpaceRelease(colorSpace);
+    colorSpace = NULL;
+	return result;
+}
+
 //
 // based on http://wiki.livedoor.jp/mikk_ni3_92/d/TGA%B2%E8%C1%FC%C6%C9%A4%DF%B9%FE%A4%DF
 //
@@ -93,7 +181,7 @@ static BOOL GLMQLoadTGAFromFile(NSDictionary *images,
              range:NSMakeRange(location, tgaImageSize)];
     if (bytesPerPixel > 2) {
         for (int i = 0; i < tgaImageSize; i += bytesPerPixel) {
-            GLuint temp = tgaImageData[i];                                             
+            GLuint temp = tgaImageData[i];
             tgaImageData[i] = tgaImageData[i + 2];
             tgaImageData[i + 2] = temp;
         }
@@ -103,35 +191,6 @@ static BOOL GLMQLoadTGAFromFile(NSDictionary *images,
     tgaImage->data = tgaImageData;
     tgaImage->size = tgaImageSize;
     return YES;
-}
-
-#define kBytesPerPixel 4
-
-static GLubyte *GetBitmapDataFromCGImage(CGImageRef image)
-{
-	size_t width = CGImageGetWidth(image);
-	size_t height = CGImageGetHeight(image);
-	GLubyte *buffer = (GLubyte *)malloc(width * height * kBytesPerPixel);
-	CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-	CGContextRef context = CGBitmapContextCreate(buffer, width, height, 8, width * kBytesPerPixel,
-                                                 colorSpace, kCGImageAlphaPremultipliedLast);
-	CGContextDrawImage(context, CGRectMake(0, 0, width, height), image);
-	CGContextRelease(context);
-	CGColorSpaceRelease(colorSpace);
-	return buffer;
-}
-
-static CGImageRef CreateCGImageFromBitmap(GLubyte *bitmap, size_t width, size_t height)
-{
-	CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-	size_t totalBytes = width * height * kBytesPerPixel;
-	CGDataProviderRef provider = CGDataProviderCreateWithData(NULL, bitmap, totalBytes, NULL);
-	CGImageRef result = CGImageCreate(width, height, 8, 8 * kBytesPerPixel, width * kBytesPerPixel,
-                                      colorSpace, kCGImageAlphaLast, provider, NULL, 0, 
-									  kCGRenderingIntentDefault);
-	CGDataProviderRelease(provider);
-	CGColorSpaceRelease(colorSpace);
-	return result;
 }
 
 static BOOL GLMQLoadTexturesFromPath(NSDictionary *images,
@@ -148,7 +207,7 @@ static BOOL GLMQLoadTexturesFromPath(NSDictionary *images,
         tgaImage.bitsPerPixel = 32;
         if (!GLMQLoadTGAFromFile(images, texturePath, &tgaImage, error))
             return NO;
-        imageRef = CreateCGImageFromBitmap(tgaImage.data, tgaImage.width, tgaImage.height);
+        imageRef = CreateCGImageFromBitmap(tgaImage.data, tgaImage.width, tgaImage.height, YES);
     }
     else {
         NSData *data = [images objectForKey:texturePath];
@@ -167,6 +226,7 @@ static BOOL GLMQLoadTexturesFromPath(NSDictionary *images,
     NSInteger height = CGImageGetHeight(imageRef);
     if (width != height) {
         CGImageRelease(imageRef);
+        imageRef = NULL;
         GLMQSetGLMQErrorAndReturnNo(kGLMQInvalidTextureSizeError, error);
     }
     CGImageAlphaInfo info = CGImageGetAlphaInfo(imageRef);
@@ -183,6 +243,7 @@ static BOOL GLMQLoadTexturesFromPath(NSDictionary *images,
         free(tgaImage.data);
         if (!GLMQLoadTGAFromFile(images, alphaTexturePath, &tgaImage, error)) {
             CGImageRelease(imageRef);
+            imageRef = NULL;
             return NO;
         }
         // RGB 24bit to RGBA 32bit
@@ -192,12 +253,14 @@ static BOOL GLMQLoadTexturesFromPath(NSDictionary *images,
             CGImageRelease(imageRef);
             free(sourcePixels);
             free(tgaImage.data);
+            sourcePixels = NULL;
+            tgaImage.data = NULL;
             GLMQSetGLMQErrorAndReturnNo(kGLMQMemoryExhaustionError, error);
         }
         int i = 0, offset = tgaImage.size - 1;
         while (i < tgaImage.size) {
             int di = (i << 2), si = i * kBytesPerPixel;
-            destPixels[di + 0] = sourcePixels[si];
+            destPixels[di + 0] = sourcePixels[si + 0];
             destPixels[di + 1] = sourcePixels[si + 1];
             destPixels[di + 2] = sourcePixels[si + 2];
             destPixels[di + 3] = tgaImage.data[offset - (((i / height) * width) + (width - (i % height) - 1))];
@@ -205,9 +268,10 @@ static BOOL GLMQLoadTexturesFromPath(NSDictionary *images,
         }
         free(sourcePixels);
         free(tgaImage.data);
+        sourcePixels = NULL;
         tgaImage.data = NULL;
         CGImageRelease(imageRef);
-        imageRef = CreateCGImageFromBitmap(destPixels, width, height);
+        imageRef = CreateCGImageFromBitmap(destPixels, width, height, NO);
     }
     GLubyte *bitmapData = GetBitmapDataFromCGImage(imageRef);
     glPixelStorei(GL_PACK_ALIGNMENT, kBytesPerPixel);
@@ -225,6 +289,9 @@ static BOOL GLMQLoadTexturesFromPath(NSDictionary *images,
     free(tgaImage.data);
     free(destPixels);
     free(bitmapData);
+    tgaImage.data = NULL;
+    destPixels = NULL;
+    bitmapData = NULL;
     return YES;
 }
 
