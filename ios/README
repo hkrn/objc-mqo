@@ -1,0 +1,20 @@
+これは objc-mqo を iOS で使用するための例を示すためのプロジェクトです。
+一応タッチでモデルの拡大縮小、及び回転を行うことは出来ます。
+
+ビルドする前にかならず ES1Renderer.m を変更する必要があります。
+また、表示するモデルは事前に用意してHTTPサーバ上に配置する必要があります。
+
+// The base URL to the .mqo file and other resources
+// mqo ファイルがあるディレクトリの絶対 URL を指定します。
+static NSString *g_baseurl = @"http://example.com/foo/bar";
+
+// The filename of the .mqo file
+// mqo のファイル名を指定します。
+static NSString *g_filename = @"baz";
+
+// Timeout interval
+// HTTP リクエストのタイムアウトを設定します。
+static NSTimeInterval g_timeout = 30.0;
+
+以上を変更したらビルドして実行してください。
+
