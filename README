@@ -1,0 +1,11 @@
+* objc-mqo
+メタセコイアモデルを表示する Objective-C で書かれたライブラリです。
+レンダリングの実装は http://kougaku-navi.net/ARToolKit.html を元にしていますが、
+ファイル解析については行単位ではなく文字単位で処理するように独自で実装しています。
+
+* ディレクトリ構成
+cocoa - objc-mqo のソースが入っている本体
+ios   - iOS で使うための例を示したプロジェクトが入っている
+
+* 姉妹品
+js-mqo https://github.com/hkrn/js-mqo
